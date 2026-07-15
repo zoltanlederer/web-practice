@@ -1,6 +1,12 @@
 const http = require('http');
 
 const server = http.createServer((req, res) => {
+    // req.url only contains the raw path + query string as one string
+    // (e.g. '/greet?name=Zoli'). The URL class needs a full URL to parse,
+    // so we reconstruct one using the Host header the client sent —
+    // we don't actually care about the domain, it's just a technical requirement.
+    const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
+
     // Route: home page
     if (req.url === '/') {
         res.writeHead(200, {'Content-type': 'text/plain'});
@@ -10,6 +16,21 @@ const server = http.createServer((req, res) => {
     } else if (req.url === '/about') {
         res.writeHead(200, {'Content-type': 'text/plain'});
         res.end('About page');
+
+    // Route: GET /greet?name=X — reads a query parameter
+    // Uses parsedUrl.pathname (not req.url) since req.url would still
+    // include the '?name=...' part and never match a clean '/greet' check.
+    } else if(parsedUrl.pathname === '/greet') {
+        // searchParams.get() returns null if the key wasn't provided —
+        // no error is thrown, so a plain if/else is correct here (not try/catch,
+        // which is for handling things that actually throw, like JSON.parse).
+        if (parsedUrl.searchParams.get('name') === null){
+            res.writeHead(200, {'Content-type': 'text/plain'});
+            res.end('Hello, stranger!');
+        } else {
+            res.writeHead(200, {'Content-type': 'text/plain'});
+            res.end(`Hello, ${parsedUrl.searchParams.get('name')}!`);
+        }
 
     // Route: POST /echo — reads a JSON body and responds based on its content
     } else if (req.url === '/echo' && req.method === 'POST') {
