@@ -25,11 +25,13 @@ const server = http.createServer((req, res) => {
         // no error is thrown, so a plain if/else is correct here (not try/catch,
         // which is for handling things that actually throw, like JSON.parse).
         if (parsedUrl.searchParams.get('name') === null){
-            res.writeHead(200, {'Content-type': 'text/plain'});
-            res.end('Hello, stranger!');
+            res.writeHead(200, {'Content-type': 'application/json'});
+            // JSON.stringify converts the JS object into an actual JSON-formatted string,
+            // since res.end() needs a string/Buffer, not a raw object.
+            res.end(JSON.stringify({message: 'Hello, stranger!'}));
         } else {
-            res.writeHead(200, {'Content-type': 'text/plain'});
-            res.end(`Hello, ${parsedUrl.searchParams.get('name')}!`);
+            res.writeHead(200, {'Content-type': 'application/json'});
+            res.end(JSON.stringify({message: `Hello, ${parsedUrl.searchParams.get('name')}!`}));
         }
 
     // Route: POST /echo — reads a JSON body and responds based on its content
@@ -54,14 +56,14 @@ const server = http.createServer((req, res) => {
                 // That's why it's called here, only after we know parsing
                 // succeeded — not earlier, and not again in the catch block.
                 res.writeHead(200, {'Content-type': 'application/json'});
-                res.end(`Hello ${body.name}`);
+                res.end(JSON.stringify({message: `Hello ${body.name}`}));
             } catch (error) {
                 // Parsing failed: respond with 400 Bad Request instead.
                 // An uncaught error here would crash the whole server, since
                 // this runs inside an event callback with no other safety net.
                 res.writeHead(400, {'Content-type': 'application/json'});
                 console.error('Invalid JSON');
-                res.end(error.message);
+                res.end(JSON.stringify({error: error.message}));
             }
         });
 
