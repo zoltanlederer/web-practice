@@ -11,12 +11,8 @@ const server = http.createServer((req, res) => {
         res.writeHead(200, {'Content-type': 'text/plain'});
         res.end('About page');
 
-    // Route: POST /echo — reads the request body and sends it back
+    // Route: POST /echo — reads a JSON body and responds based on its content
     } else if (req.url === '/echo' && req.method === 'POST') {
-        // Headers don't depend on the body here, so it's safe to send them early.
-        // If a header ever needed to depend on the body (e.g. Content-Length),
-        // writeHead() would have to move inside the 'end' handler below.
-        res.writeHead(200, {'Content-type': 'text/plain'});
 
         // The request body arrives in chunks (it's a stream), not all at once.
         // We accumulate each chunk into this variable as it arrives.
@@ -28,7 +24,24 @@ const server = http.createServer((req, res) => {
 
         // Fires once all chunks have arrived — only now is `body` complete.
         req.on('end', () => {
-            res.end(`You sent: ${body}`);
+            try {
+                // JSON.parse throws if `body` isn't valid JSON — caught below.
+                body = JSON.parse(body);
+                console.log(body);
+
+                // res.writeHead() can only be called ONCE per response.
+                // That's why it's called here, only after we know parsing
+                // succeeded — not earlier, and not again in the catch block.
+                res.writeHead(200, {'Content-type': 'application/json'});
+                res.end(`Hello ${body.name}`);
+            } catch (error) {
+                // Parsing failed: respond with 400 Bad Request instead.
+                // An uncaught error here would crash the whole server, since
+                // this runs inside an event callback with no other safety net.
+                res.writeHead(400, {'Content-type': 'application/json'});
+                console.error('Invalid JSON');
+                res.end(error.message);
+            }
         });
 
     // Fallback: no matching route
