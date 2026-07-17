@@ -46,6 +46,22 @@ app.post('/items', (req, res) => {
     res.status(201).json(newItem)
 });
 
+// updates an existing item by id — only overwrites fields present in req.body, leaves the rest untouched
+app.patch('/items/:id', (req, res) =>{
+    const id = Number(req.params.id);
+    const index = items.findIndex(i => i.id === id); // -1 if no item matches this id
+    if (index === -1){
+        res.status(404).json({error:'Item not found'});
+        return;
+    } else {
+        // strip id — clients shouldn't be able to change it
+        const { id: _, ...updates } = req.body;
+        // merge: existing item first, then updates on top — later spread wins on matching keys
+        items[index] = { ...items[index], ...updates };
+        res.status(200).json(items[index])
+    }
+});
+
 app.listen(3000, () => {
     console.log(`Listening on port 3000`)
 });
