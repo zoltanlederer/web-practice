@@ -75,9 +75,24 @@ app.delete('/items/:id', (req, res) => {
     }
 });
 
+app.get('/broken', (req, res, next) => {
+    try {
+        throw new Error('Something deliberately broke');
+    } catch (err) {
+        next(err); // hands the error off to the error-handling middleware
+    }
+});
+
 // catch-all for any request that didn't match a route above — must be the LAST app.use()
 app.use((req, res) => {
     res.status(404).json({error:'Route not found'});
+});
+
+// error-handling middleware — Express recognizes it by having 4 params (err, req, res, next)
+// only runs when something calls next(err) — otherwise this is skipped entirely
+app.use((err, req, res, next) => {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong' });
 });
 
 app.listen(3000, () => {
