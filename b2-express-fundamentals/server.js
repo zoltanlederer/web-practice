@@ -19,6 +19,12 @@ app.post('/', (req, res) => {
     res.send(`Hello ${req.body.name}`);
 });
 
+// logs method + full URL for any request to /items — runs before the matching route handler
+app.use('/items', (req, res, next) => {
+    console.log(`${req.method} request to ${req.originalUrl}`);
+    next();
+});
+
 // returns the full items array, or filtered by name if ?name= is provided
 app.get('/items', (req, res) => {
     if (req.query.name) {
