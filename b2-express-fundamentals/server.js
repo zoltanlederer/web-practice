@@ -47,7 +47,7 @@ app.post('/items', (req, res) => {
 });
 
 // updates an existing item by id — only overwrites fields present in req.body, leaves the rest untouched
-app.patch('/items/:id', (req, res) =>{
+app.patch('/items/:id', (req, res) => {
     const id = Number(req.params.id);
     const index = items.findIndex(i => i.id === id); // -1 if no item matches this id
     if (index === -1){
@@ -59,6 +59,19 @@ app.patch('/items/:id', (req, res) =>{
         // merge: existing item first, then updates on top — later spread wins on matching keys
         items[index] = { ...items[index], ...updates };
         res.status(200).json(items[index])
+    }
+});
+
+// removes an item by id
+app.delete('/items/:id', (req, res) => {
+    const id = Number(req.params.id);
+    const index = items.findIndex(i => i.id === id); // -1 if no item matches this id
+    if (index === -1){
+        res.status(404).json({error:'Item not found'});
+        return;
+    } else {
+        items.splice(index, 1); // removes 1 element at this position, shifts the rest down
+        res.status(200).json({message:'Item deleted'})
     }
 });
 
