@@ -75,6 +75,11 @@ app.delete('/items/:id', (req, res) => {
     }
 });
 
+// catch-all for any request that didn't match a route above — must be the LAST app.use()
+app.use((req, res) => {
+    res.status(404).json({error:'Route not found'});
+});
+
 app.listen(3000, () => {
     console.log(`Listening on port 3000`)
 });
