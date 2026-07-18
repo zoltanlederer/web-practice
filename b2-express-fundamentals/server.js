@@ -43,6 +43,13 @@ app.get('/items/:id', (req, res) => {
 // adds a new item and returns it (201 = something was created)
 app.post('/items', (req, res) => {
     const body = req.body;
+
+    // reject if name is missing, empty, or not a string
+    if (!body.name || typeof body.name !== 'string') {
+        res.status(400).json({error:'name is required and must be a string'});
+        return;
+    }
+
     // base new id on highest existing id, not array length —
     // length-based ids would break once items can be deleted
     const id = items.length ? Math.max(...items.map(i => i.id)) + 1 : 1;
@@ -53,6 +60,12 @@ app.post('/items', (req, res) => {
 
 // updates an existing item by id — only overwrites fields present in req.body, leaves the rest untouched
 app.patch('/items/:id', (req, res) => {
+    // name is optional here, but if it's sent, it must be a string
+    if (req.body.name !== undefined && typeof req.body.name !== 'string') {
+        res.status(400).json({error:'name must be a string if provided'});
+        return;
+    }
+
     const id = Number(req.params.id);
     const index = items.findIndex(i => i.id === id); // -1 if no item matches this id
     if (index === -1){
