@@ -19,8 +19,13 @@ app.post('/', (req, res) => {
     res.send(`Hello ${req.body.name}`);
 });
 
-// returns the full items array
+// returns the full items array, or filtered by name if ?name= is provided
 app.get('/items', (req, res) => {
+    if (req.query.name) {
+        const filtered = items.filter(i => i.name === req.query.name);
+        res.json(filtered);
+        return;
+    }
     res.json(items);
 });
 
