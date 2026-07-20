@@ -10,6 +10,17 @@ interface Item {
     name: string;
 }
 
+// shape of what a client is allowed to send when creating a new item —
+// deliberately does NOT include 'id', since that's generated server-side, not client-supplied
+interface NewItemBody {
+    name: string;
+}
+
+// shape of a PATCH body — name is optional since PATCH allows partial updates
+interface ItemUpdate {
+    name?: string;
+}
+
 // in-memory fake data — no database yet, just a plain array
 // Item[] is somewhat redundant here since TypeScript could infer this from the literal array,
 // but it protects against future mistakes (e.g. pushing a malformed object) and stays explicit
@@ -29,12 +40,11 @@ app.get('/', (req: Request, res: Response) => {
     res.send('Hello')
 });
 
-app.post('/', (req: Request, res: Response) => {
-    // NOTE: req.body is typed as 'any' by default — TypeScript has no way to know
-    // what shape the client actually sent. Typing req/res only protects code we wrote
-    // ourselves; it does NOT validate incoming request data. That's still our job,
-    // same as it was in plain JS (see the manual checks in POST/PATCH /items below).
-    res.send(`Hello ${req.body.name}`);
+// Request<{}, {}, Item> types req.body — the 3 generic slots are Params, ResBody, ReqBody;
+// {} placeholders skip the first two since this route doesn't care about them
+app.post('/', (req: Request<{}, {}, Item>, res: Response) => {
+    const body = req.body
+    res.send(`Hello ${body.name}`);
 });
 
 // logs method + full URL for any request to /items — runs before the matching route handler
@@ -65,12 +75,14 @@ app.get('/items/:id', (req: Request, res: Response) => {
 });
 
 // adds a new item and returns it (201 = something was created)
-app.post('/items', (req: Request, res: Response) => {
-    // req.body is 'any' — this validation is the ONLY thing standing between
-    // bad client input and a broken item in the array; TypeScript doesn't help here
+// req.body typed as NewItemBody — TypeScript now knows body.name should be a string,
+// but this is still a compile-time-only guarantee: it says nothing about what the
+// client actually sends over the wire, so the manual check below is still required
+app.post('/items', (req: Request<{}, {}, NewItemBody>, res: Response) => {
     const body = req.body;
 
-    // reject if name is missing, empty, or not a string
+    // reject if name is missing, empty, or not a string — TypeScript's type doesn't
+    // check the real request at runtime, this manual check is the actual enforcement
     if (!body.name || typeof body.name !== 'string') {
         res.status(400).json({error:'name is required and must be a string'});
         return;
@@ -85,26 +97,36 @@ app.post('/items', (req: Request, res: Response) => {
 });
 
 // updates an existing item by id — only overwrites fields present in req.body, leaves the rest untouched
-app.patch('/items/:id', (req: Request, res: Response) => {
-    // name is optional here, but if it's sent, it must be a string
-    // (again: req.body is 'any', so this manual check is still required — TypeScript won't catch bad input)
-    if (req.body.name !== undefined && typeof req.body.name !== 'string') {
+// Request<{ id: string }, {}, ItemUpdate> — first slot types req.params (route has :id),
+// third slot types req.body as the optional-name shape defined by ItemUpdate
+app.patch('/items/:id', (req: Request<{id: string}, {}, ItemUpdate>, res: Response) => {
+    // name is optional (per ItemUpdate), but if it's sent, it must be a string —
+    // again, TypeScript's type is compile-time only, this check is the real enforcement
+    const body = req.body
+    if (body.name !== undefined && typeof body.name !== 'string') {
         res.status(400).json({error:'name must be a string if provided'});
         return;
     }
 
     const id = Number(req.params.id);
     const index = items.findIndex(i => i.id === id); // -1 if no item matches this id
-    if (index === -1){
+    // pulled into its own variable so TypeScript can "narrow" it below — checking
+    // items[index] fresh each time wouldn't let TypeScript treat it as guaranteed
+    const existingItem = items[index];
+
+    if (index === -1 || !existingItem){
         res.status(404).json({error:'Item not found'});
         return;
-    } else {
-        // strip id — clients shouldn't be able to change it
-        const { id: _, ...updates } = req.body;
-        // merge: existing item first, then updates on top — later spread wins on matching keys
-        items[index] = { ...items[index], ...updates };
-        res.status(200).json(items[index])
     }
+
+    // built explicitly (not via {...items[index], ...body}) — a spread merge here would
+    // make 'id' inferred as optional (since ItemUpdate never has 'id'), which fails
+    // against Item's required 'id'; '??' falls back to the existing name if none was sent
+    items[index] = {
+        id: existingItem.id,
+        name: body.name ?? existingItem.name
+    }
+    res.status(200).json(items[index])
 });
 
 // removes an item by id
