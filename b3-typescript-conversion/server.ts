@@ -1,9 +1,20 @@
 import express from 'express';
+// type-only import — Request/Response/NextFunction don't exist at runtime,
+// they're erased when compiled to JS; verbatimModuleSyntax requires marking this explicitly
 import type { Request, Response, NextFunction } from 'express';
 const app = express();
 
+// interface describes the shape of ONE item — array-ness is added separately at the point of use (Item[])
+interface Item {
+    id: number;
+    name: string;
+}
+
 // in-memory fake data — no database yet, just a plain array
-let items = [
+// Item[] is somewhat redundant here since TypeScript could infer this from the literal array,
+// but it protects against future mistakes (e.g. pushing a malformed object) and stays explicit
+// for readability — becomes strictly necessary the moment this isn't a pre-filled literal (e.g. an empty array)
+let items: Item[] = [
     { id: 1, name: 'apple' },
     { id: 2, name: 'banana' },
     { id: 3, name: 'cherry' },
@@ -12,11 +23,17 @@ let items = [
 // parses JSON request bodies into req.body — must come before any route that reads req.body
 app.use(express.json())
 
+// req: Request, res: Response — Express's own types, from @types/express;
+// without these, req/res would implicitly be 'any' and TypeScript would stop checking them
 app.get('/', (req: Request, res: Response) => {
     res.send('Hello')
 });
 
 app.post('/', (req: Request, res: Response) => {
+    // NOTE: req.body is typed as 'any' by default — TypeScript has no way to know
+    // what shape the client actually sent. Typing req/res only protects code we wrote
+    // ourselves; it does NOT validate incoming request data. That's still our job,
+    // same as it was in plain JS (see the manual checks in POST/PATCH /items below).
     res.send(`Hello ${req.body.name}`);
 });
 
@@ -49,6 +66,8 @@ app.get('/items/:id', (req: Request, res: Response) => {
 
 // adds a new item and returns it (201 = something was created)
 app.post('/items', (req: Request, res: Response) => {
+    // req.body is 'any' — this validation is the ONLY thing standing between
+    // bad client input and a broken item in the array; TypeScript doesn't help here
     const body = req.body;
 
     // reject if name is missing, empty, or not a string
@@ -68,6 +87,7 @@ app.post('/items', (req: Request, res: Response) => {
 // updates an existing item by id — only overwrites fields present in req.body, leaves the rest untouched
 app.patch('/items/:id', (req: Request, res: Response) => {
     // name is optional here, but if it's sent, it must be a string
+    // (again: req.body is 'any', so this manual check is still required — TypeScript won't catch bad input)
     if (req.body.name !== undefined && typeof req.body.name !== 'string') {
         res.status(400).json({error:'name must be a string if provided'});
         return;
@@ -113,7 +133,8 @@ app.use((req: Request, res: Response) => {
     res.status(404).json({error:'Route not found'});
 });
 
-// error-handling middleware — Express recognizes it by having 4 params (err, req, res, next)
+// error-handling middleware — Express recognizes it by having 4 params (err, req, res, next),
+// counted structurally, not by name; err: Error is TypeScript's built-in type for error objects
 // only runs when something calls next(err) — otherwise this is skipped entirely
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     console.error(err);
