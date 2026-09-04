@@ -1,8 +1,14 @@
 import { pool } from './db.js';
+import express from 'express';
+import type { Request, Response } from 'express';
 
-const client = await pool.connect()
-const res = await client.query('SELECT NOW()')
-console.log(res)
-client.release()
+const app = express()
 
-await pool.end()
+app.get('/movies', (req: Request, res: Response) => {
+    res.send('movies route works')
+})
+
+const PORT = Number(process.env.PORT) || 3000
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`)
+})
