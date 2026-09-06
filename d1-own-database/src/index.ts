@@ -19,6 +19,29 @@ app.get('/movies', async (req: Request, res: Response) => {
     }
 })
 
+app.get('/movies/:id', async (req: Request, res: Response) => {
+    let client
+    try {
+        const id = Number(req.params.id)
+        if (isNaN(id)) {
+            res.status(400).json({ error: 'Invalid id' })
+            return
+        }
+        client = await pool.connect()
+        const result = await client.query('SELECT * FROM movies WHERE id = $1', [id])
+        if (!result.rows[0]) {
+            res.status(404).json({ error: "'id' not found" })
+            return
+        }
+        res.json(result.rows[0])
+    } catch (err) {
+        console.log(err)
+        res.status(500).json({ error: 'Failed to fecth movie' })
+    } finally {
+        client?.release()
+    }
+});
+
 app.post('/movies', async (req: Request, res: Response) => {
     let client;
     try {
