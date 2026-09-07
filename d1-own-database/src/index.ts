@@ -61,6 +61,34 @@ app.post('/movies', async (req: Request, res: Response) => {
     }
 });
 
+app.put('/movies/:id', async (req: Request, res: Response) => {
+    let client
+    try {
+        const id = Number(req.params.id)
+        if (isNaN(id)) {
+            res.status(400).json({ error: 'invalid id' })
+            return
+        }
+        const { title, year, rating, watched } = req.body
+        if (!title) {
+            res.status(400).json({ error: 'title is required' })
+            return
+        }
+        client = await pool.connect()
+        const result = await client.query('UPDATE movies SET title=$1, year=$2, rating=$3, watched=$4 WHERE id=$5 RETURNING *', [title, year, rating, watched, id])
+        if (!result.rows[0]) {
+            res.status(404).json({ error: 'id not found' })
+            return
+        }
+        res.json(result.rows[0])
+    } catch (err) {
+        console.log(err)
+        res.status(500).json({ error: 'update failed' })
+    } finally {
+        client?.release()
+    }
+});
+
 const PORT = Number(process.env.PORT) || 3000
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`)
