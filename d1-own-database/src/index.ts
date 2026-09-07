@@ -89,6 +89,29 @@ app.put('/movies/:id', async (req: Request, res: Response) => {
     }
 });
 
+app.delete('/movies/:id', async (req: Request, res: Response) => {
+    let client
+    try {
+        const id = Number(req.params.id)
+        if (isNaN(id)) {
+            res.status(400).json({ error: 'invalid id' })
+            return
+        }
+        client = await pool.connect()
+        const result = await client.query('DELETE FROM movies WHERE id=$1 RETURNING *', [id])
+        if (!result.rows[0]) {
+            res.status(404).json({ error: 'id not found' })
+            return
+        }
+        res.json(result.rows[0])
+    } catch (err) {
+        console.log(err)
+        res.status(500).json({ error: 'delete failed' })
+    } finally {
+        client?.release()
+    }
+});
+
 const PORT = Number(process.env.PORT) || 3000
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`)
