@@ -1,8 +1,6 @@
 import { pool } from './db.js';
 import express from 'express';
 import type { Request, Response } from 'express';
-import { error } from 'node:console';
-import { fileURLToPath } from 'node:url';
 
 const app = express()
 app.use(express.json())
@@ -17,6 +15,8 @@ app.get('/movies', async (req: Request, res: Response) => {
         console.log(err)
         res.status(500).json({ error: 'Failed to fetch movies' })
     } finally {
+        // Runs whether the query succeeded or threw — without this, a failed query
+        // would leak the connection out of the pool permanently.
         client?.release()
     }
 })
@@ -38,7 +38,7 @@ app.get('/movies/:id', async (req: Request, res: Response) => {
         res.json(result.rows[0])
     } catch (err) {
         console.log(err)
-        res.status(500).json({ error: 'Failed to fecth movie' })
+        res.status(500).json({ error: 'Failed to fetch movie' })
     } finally {
         client?.release()
     }
@@ -48,6 +48,8 @@ app.post('/movies', async (req: Request, res: Response) => {
     let client;
     try {
         const { title, year, rating, watched } = req.body
+        // Validate before touching the database — a missing title would otherwise
+        // hit Postgres's NOT NULL constraint and return a confusing 500 instead of a clear 400.
         if (!title) {
             res.status(400).json({ error: 'title is required' })
             return
@@ -71,12 +73,15 @@ app.put('/movies/:id', async (req: Request, res: Response) => {
             res.status(400).json({ error: 'invalid id' })
             return
         }
+        // PUT expects the full object every time — unlike PATCH, any field left out
+        // here would overwrite existing data with NULL, since all four columns are always SET.
         const { title, year, rating, watched } = req.body
         if (!title) {
             res.status(400).json({ error: 'title is required' })
             return
         }
         client = await pool.connect()
+        // WHERE id=$5 is required — an UPDATE with no WHERE clause would overwrite every row in the table.
         const result = await client.query('UPDATE movies SET title=$1, year=$2, rating=$3, watched=$4 WHERE id=$5 RETURNING *', [title, year, rating, watched, id])
         if (!result.rows[0]) {
             res.status(404).json({ error: 'id not found' })
@@ -163,6 +168,7 @@ app.delete('/movies/:id', async (req: Request, res: Response) => {
             return
         }
         client = await pool.connect()
+        // WHERE id=$1 is required — a DELETE with no WHERE clause removes every row in the table, permanently.
         const result = await client.query('DELETE FROM movies WHERE id=$1 RETURNING *', [id])
         if (!result.rows[0]) {
             res.status(404).json({ error: 'id not found' })
