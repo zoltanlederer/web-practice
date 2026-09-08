@@ -9,8 +9,22 @@ app.get('/movies', async (req: Request, res: Response) => {
     let client;
     try {
         client = await pool.connect()
-        const query = await client.query('SELECT * FROM movies')  
-        res.json(query.rows)
+
+        // LEFT JOIN (not JOIN) so movies with zero genres still appear —
+        // an inner JOIN would silently drop them since they have no movie_genres row.
+        // array_agg collects each movie's genre names into one array; FILTER strips out
+        // the NULL that appears for genre-less movies (from the LEFT JOIN); COALESCE
+        // then converts that leftover NULL into a clean empty array instead.
+        const query = `
+            SELECT movies.id, movies.title, movies.year, movies.rating, movies.watched,
+                   COALESCE(array_agg(genres.name) FILTER (WHERE genres.name IS NOT NULL), '{}') AS genres
+            FROM movies
+            LEFT JOIN movie_genres ON movies.id = movie_genres.movie_id
+            LEFT JOIN genres ON movie_genres.genre_id = genres.id
+            GROUP BY movies.id;`
+
+        const result = await client.query(query) 
+        res.json(result.rows)
     } catch (err) {
         console.log(err)
         res.status(500).json({ error: 'Failed to fetch movies' })
@@ -30,7 +44,15 @@ app.get('/movies/:id', async (req: Request, res: Response) => {
             return
         }
         client = await pool.connect()
-        const result = await client.query('SELECT * FROM movies WHERE id = $1', [id])
+        const query = `
+            SELECT movies.id, movies.title, movies.year, movies.rating, movies.watched,
+                    COALESCE(array_agg(genres.name) FILTER (WHERE genres.name IS NOT NULL), '{}') AS genres
+            FROM movies
+            LEFT JOIN movie_genres ON movies.id = movie_genres.movie_id
+            LEFT JOIN genres ON movie_genres.genre_id = genres.id
+            WHERE movies.id = $1
+            GROUP BY movies.id;`    
+        const result = await client.query(query, [id])
         if (!result.rows[0]) {
             res.status(404).json({ error: "'id' not found" })
             return
