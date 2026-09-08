@@ -183,6 +183,20 @@ app.delete('/movies/:id', async (req: Request, res: Response) => {
     }
 });
 
+app.get('/genres', async (req: Request, res: Response) => {
+    let client;
+    try {
+        client = await pool.connect()
+        const query = await client.query('SELECT * FROM genres')  
+        res.json(query.rows)
+    } catch (err) {
+        console.log(err)
+        res.status(500).json({ error: 'Failed to fetch genres' })
+    } finally {
+        client?.release()
+    }
+})
+
 const PORT = Number(process.env.PORT) || 3000
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`)
