@@ -47,7 +47,7 @@ app.get('/movies/:id', async (req: Request, res: Response) => {
 app.post('/movies', async (req: Request, res: Response) => {
     let client;
     try {
-        const { title, year, rating, watched } = req.body
+        const { title, year, rating, watched, genre_ids } = req.body
         // Validate before touching the database — a missing title would otherwise
         // hit Postgres's NOT NULL constraint and return a confusing 500 instead of a clear 400.
         if (!title) {
@@ -55,8 +55,31 @@ app.post('/movies', async (req: Request, res: Response) => {
             return
         }
         client = await pool.connect()
-        const result = await client.query('INSERT INTO movies(title, year, rating, watched) VALUES($1, $2, $3, $4) RETURNING *', [title, year, rating, watched])
-        res.status(201).json(result.rows[0])
+
+        // Wrap the movie insert + genre links in a transaction: both must succeed together,
+        // since a movie with only some of its genres attached would be an inconsistent state.
+        await client.query('BEGIN');
+        try {
+            const result = await client.query('INSERT INTO movies(title, year, rating, watched) VALUES($1, $2, $3, $4) RETURNING *', [title, year, rating, watched])
+            const movie = result.rows[0]
+
+            // genre_ids is optional — only attempt linking if it was actually provided as an array.
+            // One INSERT per id, since a movie can have multiple genres (many-to-many via movie_genres).
+            if (genre_ids && Array.isArray(genre_ids)) {
+                for (const genreId of genre_ids) {
+                    await client.query('INSERT INTO movie_genres(movie_id, genre_id) VALUES($1, $2)', [movie.id, genreId])
+                }
+            }
+
+            // Only commit — and only respond to the client — once every insert above has succeeded.
+            await client.query('COMMIT');
+            res.status(201).json(movie)
+        } catch (err) {
+            // Something failed (e.g. an invalid genre_id violating the foreign key) —
+            // undo the movie insert too, so we never leave a half-created movie behind.
+            await client.query('ROLLBACK');
+            throw err // re-throw so the outer catch still sends an error response to the client
+        }
     } catch (err) {
         console.log(err)
         res.status(500).json({ error: 'Failed to create movie' })
