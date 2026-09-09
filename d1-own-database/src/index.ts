@@ -142,7 +142,8 @@ app.put('/movies/:id', async (req: Request, res: Response) => {
 });
 
 // PATCH /movies/:id — partial update: only fields present in the body get updated,
-// anything omitted stays unchanged in the database.
+// anything omitted stays unchanged. genre_ids (if sent) fully replaces the movie's
+// existing genre assignments — it isn't a movies column, so it's handled separately below.
 app.patch('/movies/:id', async (req: Request, res: Response) => {
     let client
     try {
@@ -175,7 +176,7 @@ app.patch('/movies/:id', async (req: Request, res: Response) => {
             }
         }
 
-        // If the client sent an empty body (or all-unknown keys), there's nothing to update.
+        // Reject only if there's truly nothing to do — no movies columns AND no genre_ids.
         if (fields.length === 0 && !genre_ids) {
             res.status(400).json({ error: 'No fields provided to update' })
             return
@@ -187,6 +188,9 @@ app.patch('/movies/:id', async (req: Request, res: Response) => {
         client = await pool.connect()
         await client.query('BEGIN');
         try {
+            // If any movies columns changed, UPDATE (and fetch the new row via RETURNING).
+            // Otherwise (genre_ids-only request), just SELECT the existing row —
+            // still needed below for its id and for the response.
             let result
             if (fields.length > 0){
                 const query = `UPDATE movies SET ${fields.join(', ')} WHERE id=$${paramIndex} RETURNING *`
@@ -204,6 +208,8 @@ app.patch('/movies/:id', async (req: Request, res: Response) => {
                 return
             }  
 
+            // Replace (not merge) the movie's genres: wipe existing links, then
+            // insert one row per id in genre_ids — same strategy as POST /movies.
             if (genre_ids && Array.isArray(genre_ids)) {
                 await client.query('DELETE FROM movie_genres WHERE movie_id = $1', [movie.id])
                 for (const genreId of genre_ids) {
