@@ -153,7 +153,7 @@ app.patch('/movies/:id', async (req: Request, res: Response) => {
         }
 
         // Pull out whichever fields the client sent — missing ones become undefined.
-        const { title, year, rating, watched } = req.body
+        const { title, year, rating, watched, genre_ids } = req.body
 
         // Build the SET clause and its parameter values dynamically,
         // since we don't know in advance which fields were provided.
@@ -176,25 +176,47 @@ app.patch('/movies/:id', async (req: Request, res: Response) => {
         }
 
         // If the client sent an empty body (or all-unknown keys), there's nothing to update.
-        if (fields.length === 0) {
+        if (fields.length === 0 && !genre_ids) {
             res.status(400).json({ error: 'No fields provided to update' })
             return
         }
 
         // id goes last, since it's the final $N placeholder after all the SET fields.
         values.push(id)
-        const query = `UPDATE movies SET ${fields.join(', ')} WHERE id=$${paramIndex} RETURNING *`
 
         client = await pool.connect()
-        const result = await client.query(query, values)
+        await client.query('BEGIN');
+        try {
+            let result
+            if (fields.length > 0){
+                const query = `UPDATE movies SET ${fields.join(', ')} WHERE id=$${paramIndex} RETURNING *`
+                result = await client.query(query, values)
+            } else {
+                result = await client.query('SELECT * FROM movies WHERE id=$1', [id])
+            }
+            
+            const movie = result.rows[0]
 
-        // No row matched that id — nothing was updated.
-        if (!result.rows[0]) {
-            res.status(404).json({ error: 'id not found' })
-            return
+            // No row matched that id — nothing was updated.
+            if (!movie) {
+                await client.query('ROLLBACK');
+                res.status(404).json({ error: 'id not found' })
+                return
+            }  
+
+            if (genre_ids && Array.isArray(genre_ids)) {
+                await client.query('DELETE FROM movie_genres WHERE movie_id = $1', [movie.id])
+                for (const genreId of genre_ids) {
+                    await client.query('INSERT INTO movie_genres(movie_id, genre_id) VALUES($1, $2)', [movie.id, genreId])
+                }
+            }
+
+            await client.query('COMMIT');
+            res.json(movie)
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err
         }
-
-        res.json(result.rows[0])
     } catch (err) {
         console.log(err)
         res.status(500).json({ error: 'update failed' })
