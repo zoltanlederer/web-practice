@@ -120,19 +120,37 @@ app.put('/movies/:id', async (req: Request, res: Response) => {
         }
         // PUT expects the full object every time — unlike PATCH, any field left out
         // here would overwrite existing data with NULL, since all four columns are always SET.
-        const { title, year, rating, watched } = req.body
+        // genre_ids (if sent) fully replaces the movie's existing genre assignments.
+        const { title, year, rating, watched, genre_ids } = req.body
         if (!title) {
             res.status(400).json({ error: 'title is required' })
             return
         }
         client = await pool.connect()
-        // WHERE id=$5 is required — an UPDATE with no WHERE clause would overwrite every row in the table.
-        const result = await client.query('UPDATE movies SET title=$1, year=$2, rating=$3, watched=$4 WHERE id=$5 RETURNING *', [title, year, rating, watched, id])
-        if (!result.rows[0]) {
-            res.status(404).json({ error: 'id not found' })
-            return
+        await client.query('BEGIN')
+        try {
+            // WHERE id=$5 is required — an UPDATE with no WHERE clause would overwrite every row in the table.
+            const result = await client.query('UPDATE movies SET title=$1, year=$2, rating=$3, watched=$4 WHERE id=$5 RETURNING *', [title, year, rating, watched, id])
+            if (!result.rows[0]) {
+                await client.query('ROLLBACK')
+                res.status(404).json({ error: 'id not found' })
+                return
+            }
+            // Replace (not merge) the movie's genres: wipe existing links, then
+            // insert one row per id in genre_ids — same strategy as POST/PATCH.
+            if (genre_ids && Array.isArray(genre_ids)) {
+                await client.query('DELETE FROM movie_genres WHERE movie_id = $1', [id])
+                for (const genreId of genre_ids) {
+                    await client.query('INSERT INTO movie_genres(movie_id, genre_id) VALUES($1, $2)', [id, genreId])
+                }
+            }
+            await client.query('COMMIT')
+            res.json(result.rows[0])
+        } catch (err) {
+            await client.query('ROLLBACK')
+            throw err
         }
-        res.json(result.rows[0])
+        
     } catch (err) {
         console.log(err)
         res.status(500).json({ error: 'update failed' })
