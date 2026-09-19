@@ -62,6 +62,10 @@ app.post('/register', async (req: Request, res: Response) => {
             res.status(400).json({ error: 'password is required' })
             return
         }
+        if (password.length < 8) {
+            res.status(400).json({ error: 'minimum password length is 8 characters' })
+            return
+        }
 
         // Never store the plain password — only the bcrypt hash.
         // saltRounds controls how expensive the hash is to compute (higher = slower = harder to brute-force).
@@ -141,6 +145,10 @@ app.post('/login', async (req: Request, res: Response) => {
         client?.release()
     }
 })
+
+if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET is missing from .env')
+}
 
 const PORT = Number(process.env.PORT) || 3000
 app.listen(PORT, () => {
