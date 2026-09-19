@@ -1,13 +1,39 @@
 import { pool } from './db.js'
 import express from 'express'
-import type { Request, Response } from 'express'
+import type { Request, Response, NextFunction } from 'express'
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 
 const app = express()
 app.use(express.json())
 
-app.get('/', async (req: Request, res: Response) => {
+// Middleware: runs before any route it's attached to, and only calls next()
+// (letting the real route handler run) if the request has a valid, unexpired token.
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+    const authHeader = req.headers.authorization
+
+    // Expected format: "Bearer <token>". Reject anything else before even
+    // attempting to verify, so a missing/malformed header fails fast.
+    if (!authHeader || !authHeader.startsWith('Bearer ')){
+        res.status(401).json({ error: 'authorization error' })
+        return
+    }
+
+    const token = authHeader.slice(7) // strip the "Bearer " prefix (7 chars)
+
+    try {
+        // Throws if the signature is invalid or the token has expired.
+        jwt.verify(token, process.env.JWT_SECRET as string)
+        next()
+    } catch (err) {
+        console.error(err)
+        res.status(401).json({ error: 'invalid or expired token' })
+        return
+    }
+}
+
+// requireAuth runs first — this handler only executes if a valid token was provided.
+app.get('/', requireAuth, async (req: Request, res: Response) => {
     let client
     try {
         client = await pool.connect()
