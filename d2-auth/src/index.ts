@@ -23,7 +23,17 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
 
     try {
         // Throws if the signature is invalid or the token has expired.
-        jwt.verify(token, process.env.JWT_SECRET as string)
+        const decoded = jwt.verify(token, process.env.JWT_SECRET as string)
+
+        // jwt.verify's return type is `string | JwtPayload` — a generic shape that
+        // doesn't know about our custom `id` field. Narrow it manually before trusting
+        // it, same as the Postgres error check above: a technically-valid signature
+        // with an unexpected payload shape is treated as invalid, not let through.
+        if (!decoded || typeof decoded !== 'object' || typeof (decoded as any).id !== 'number' ) {
+           res.status(401).json({ error: 'invalid token payload' })
+           return
+        }
+        req.user = decoded as { id: number }
         next()
     } catch (err) {
         console.error(err)
@@ -141,6 +151,28 @@ app.post('/login', async (req: Request, res: Response) => {
     } catch (err) {
         console.error(err)
         res.status(500).json({ error: 'login failed' })
+    } finally {
+        client?.release()
+    }
+})
+
+app.get('/me', requireAuth, async (req: Request, res: Response) => {
+    let client
+    try {
+        // req.user is set by requireAuth from the verified token — never trust an id
+        // sent by the client itself (e.g. in the body or a query param), or anyone
+        // could request another user's data just by claiming their id.
+        if(!req.user){
+            res.status(401).json({ error: "authentication required" })
+            return
+        }
+        const { id } = req.user
+        client = await pool.connect()
+        const result = await client.query('SELECT email, created_at FROM users WHERE id = $1', [id])
+        res.json(result.rows[0])
+    } catch (err) {
+        console.error(err)
+        res.status(500).json({ error: 'Failed to connect' })
     } finally {
         client?.release()
     }
