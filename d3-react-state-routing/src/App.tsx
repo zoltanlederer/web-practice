@@ -1,5 +1,23 @@
+import { Routes, Route } from 'react-router-dom';
+import Home from './pages/Home'
+import MovieList from './pages/MovieList';
+import MovieDetail from './pages/MovieDetail';
+import NotFound from "./pages/NotFound"
+import Layout from "./components/Layout";
+
 function App() {
-  return <h1>D3: React State & Routing</h1>;
+  return (
+    <div>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route path="/" element={<Home />} />
+          <Route path="/movies" element={<MovieList />} />
+          <Route path="/movies/:id" element={<MovieDetail />} />
+          <Route path="*" element={<NotFound />} />
+        </Route>        
+      </Routes>
+    </div>
+  )
 }
 
 export default App;
