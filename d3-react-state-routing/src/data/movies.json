@@ -1,0 +1,12 @@
+[
+  { "id": "1", "title": "Inception", "year": 2010 },
+  { "id": "2", "title": "The Matrix", "year": 1999 },
+  { "id": "3", "title": "Interstellar", "year": 2014 },
+  { "id": "4", "title": "The Dark Knight", "year": 2008 },
+  { "id": "5", "title": "Pulp Fiction", "year": 1994 },
+  { "id": "6", "title": "Spirited Away", "year": 2001 },
+  { "id": "7", "title": "Parasite", "year": 2019 },
+  { "id": "8", "title": "The Godfather", "year": 1972 },
+  { "id": "9", "title": "Dune", "year": 2021 },
+  { "id": "10", "title": "Whiplash", "year": 2014 }
+]
