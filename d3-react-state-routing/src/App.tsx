@@ -4,6 +4,7 @@ import MovieList from './pages/MovieList';
 import MovieDetail from './pages/MovieDetail';
 import NotFound from "./pages/NotFound"
 import Layout from "./components/Layout";
+import Watchlist from './pages/Watchlist';
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/movies" element={<MovieList />} />
           <Route path="/movies/:id" element={<MovieDetail />} />
+          <Route path="/watchlist" element={<Watchlist />} />
           <Route path="*" element={<NotFound />} />
         </Route>        
       </Routes>
