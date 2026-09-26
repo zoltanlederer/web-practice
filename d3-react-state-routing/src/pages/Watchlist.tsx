@@ -1,4 +1,4 @@
-import { useReducer, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 
 interface WatchListItem {
     id: string;
@@ -67,6 +67,25 @@ function Watchlist() {
     // different concerns.
     const [errors, setErrors] = useState<{ title?: string; year?: string }>({})
 
+    // A ref, unlike useState, doesn't trigger a re-render when it
+    // changes, and its value survives across renders without being
+    // reset. Here it's used to get a handle on the actual DOM node
+    // for the Title input, so it can be focused programmatically —
+    // something React state alone can't do, since state only
+    // describes what to render, not direct DOM operations like
+    // .focus(). Starts as null because before the first render,
+    // the DOM node doesn't exist yet.
+    const inputRef = useRef<HTMLInputElement>(null)
+
+    // Empty dependency array [] means this effect runs exactly once,
+    // right after the component's first render — the right moment to
+    // focus the input, since by then React has attached inputRef to
+    // the real DOM node. The ?. guards against .current still being
+    // null (TypeScript requires the check, since that's its declared type).
+    useEffect(() => {
+        inputRef.current?.focus()
+    }, [])
+
     const handleAdd = (e: React.SubmitEvent<HTMLFormElement>) => {
         e.preventDefault() // stop the browser's default full-page reload on submit
         setErrors({}) // clear any errors left over from a previous failed attempt
@@ -106,8 +125,11 @@ function Watchlist() {
             <form onSubmit={handleAdd}>
                 <label htmlFor='add-item'>Title:</label>
                 {/* Controlled input: React state is the single source of
-                    truth for the value, not the DOM itself. */}
-                <input id='add-item' value={watchItem} onChange={(e) => setWatchItem(e.target.value)} />
+                    truth for the value, not the DOM itself. ref is used
+                    only for the one-off .focus() call above — it doesn't
+                    replace the value/onChange pair, which still owns the
+                    field's actual content. */}
+                <input id='add-item' value={watchItem} ref={inputRef} onChange={(e) => setWatchItem(e.target.value)} />
 
                 <label htmlFor='add-year'>Year:</label>
                 <input id='add-year' value={year} onChange={(e) => setYear(e.target.value)} />
