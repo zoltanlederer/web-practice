@@ -16,3 +16,10 @@ CREATE TABLE movie_genres (
     genre_id INT REFERENCES genres(id) ON DELETE CASCADE,
     PRIMARY KEY (movie_id, genre_id)
 );
+
+CREATE TABLE users (
+    id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
