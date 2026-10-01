@@ -1,6 +1,11 @@
 import request from 'supertest'
 import { pool } from '../db.js'
 import { app } from '../app.js'
+import { resetDb } from '../test-helpers.js'
+
+beforeEach(async () => {
+    await resetDb()
+})
 
 afterAll(async () => {
     await pool.end()
