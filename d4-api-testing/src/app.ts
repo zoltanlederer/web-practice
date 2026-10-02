@@ -21,7 +21,8 @@ app.get('/movies', async (req: Request, res: Response) => {
             FROM movies
             LEFT JOIN movie_genres ON movies.id = movie_genres.movie_id
             LEFT JOIN genres ON movie_genres.genre_id = genres.id
-            GROUP BY movies.id;`
+            GROUP BY movies.id
+            ORDER BY movies.id;`
 
         const result = await client.query(query) 
         res.json(result.rows)
@@ -278,7 +279,7 @@ app.get('/genres', async (req: Request, res: Response) => {
     let client;
     try {
         client = await pool.connect()
-        const query = await client.query('SELECT * FROM genres')  
+        const query = await client.query('SELECT * FROM genres ORDER BY id')  
         res.json(query.rows)
     } catch (err) {
         console.log(err)

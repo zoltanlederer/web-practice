@@ -17,4 +17,11 @@ describe('GET /genres', () => {
         expect(res.status).toBe(200)
         expect(res.body).toEqual([])
     })
+
+    it('returns 200 and the genres that exist', async () => {
+        await pool.query("INSERT INTO genres (name) VALUES ('Drama'), ('Comedy')")
+        const res = await request(app).get('/genres')
+        expect(res.status).toBe(200)
+        expect(res.body).toEqual([{ id: 1, name: 'Drama' }, { id: 2, name: 'Comedy' }])
+    })
 })
