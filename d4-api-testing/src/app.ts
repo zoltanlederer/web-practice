@@ -15,9 +15,11 @@ app.get('/movies', async (req: Request, res: Response) => {
         // array_agg collects each movie's genre names into one array; FILTER strips out
         // the NULL that appears for genre-less movies (from the LEFT JOIN); COALESCE
         // then converts that leftover NULL into a clean empty array instead.
+        // ORDER BY inside array_agg sorts each movie's genre names alphabetically,
+        // since array_agg on its own doesn't guarantee any order.
         const query = `
             SELECT movies.id, movies.title, movies.year, movies.rating, movies.watched,
-                   COALESCE(array_agg(genres.name) FILTER (WHERE genres.name IS NOT NULL), '{}') AS genres
+                   COALESCE(array_agg(genres.name ORDER BY genres.name) FILTER (WHERE genres.name IS NOT NULL), '{}') AS genres
             FROM movies
             LEFT JOIN movie_genres ON movies.id = movie_genres.movie_id
             LEFT JOIN genres ON movie_genres.genre_id = genres.id
@@ -47,7 +49,7 @@ app.get('/movies/:id', async (req: Request, res: Response) => {
         client = await pool.connect()
         const query = `
             SELECT movies.id, movies.title, movies.year, movies.rating, movies.watched,
-                    COALESCE(array_agg(genres.name) FILTER (WHERE genres.name IS NOT NULL), '{}') AS genres
+                    COALESCE(array_agg(genres.name ORDER BY genres.name) FILTER (WHERE genres.name IS NOT NULL), '{}') AS genres
             FROM movies
             LEFT JOIN movie_genres ON movies.id = movie_genres.movie_id
             LEFT JOIN genres ON movie_genres.genre_id = genres.id
