@@ -73,3 +73,29 @@ describe('GET /movies/:id', () => {
         expect(res.body).toHaveProperty('error')
     })
 })
+
+describe('POST /movies', () => {
+    it('returns 201 and creates the movie', async () => {
+        const res = await request(app)
+            .post('/movies')
+            .send({ title: 'Thor', year: 2011, rating: 7.2, watched: false })
+
+        const result = await pool.query('SELECT * FROM movies')
+        const expected = { id:1, title: 'Thor', year: 2011, rating: '7.2', watched: false }
+        
+        expect(res.status).toBe(201)
+        expect(res.body).toEqual(expected)
+        expect(result.rows).toEqual([expected])
+    })
+
+    it('returns 400 when title is missing', async () => {
+        const res = await request(app)
+            .post('/movies')
+            .send({ year: 2011, rating: 7.2, watched: false })
+
+        const result = await pool.query('SELECT * FROM movies')
+        expect(res.status).toBe(400)
+        expect(res.body).toHaveProperty('error')
+        expect(result.rows).toEqual([])
+    })
+})
