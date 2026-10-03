@@ -43,3 +43,33 @@ describe('GET /movies', () => {
         expect(res.body[0].genres).toEqual([])
     })    
 })
+
+describe('GET /movies/:id', () => {
+    it('returns 200 and the movie when it exists', async () => {
+        await pool.query("INSERT INTO movies (title, year, rating, watched) VALUES ('The Avengers', 2012, 8.3, false)")
+        const res = await request(app).get('/movies/1')
+        expect(res.status).toBe(200)
+        expect(res.body).toEqual(
+            {
+            id: 1,
+            title: 'The Avengers',
+            year: 2012,
+            rating: '8.3',
+            watched: false,
+            genres: []
+            }
+        )
+    })
+
+    it("returns 404 when the movie doesn't exist", async () => {
+        const res = await request(app).get('/movies/1')
+        expect(res.status).toBe(404)
+        expect(res.body).toHaveProperty('error')
+    })
+
+    it('returns 400 when the id is not a number', async () => {
+        const res = await request(app).get('/movies/abc')
+        expect(res.status).toBe(400)
+        expect(res.body).toHaveProperty('error')
+    })
+})
