@@ -42,7 +42,7 @@ app.get('/movies/:id', async (req: Request, res: Response) => {
     let client
     try {
         const id = Number(req.params.id)
-        if (isNaN(id)) {
+        if (!Number.isInteger(id)) {
             res.status(400).json({ error: 'Invalid id' })
             return
         }
@@ -117,7 +117,7 @@ app.put('/movies/:id', async (req: Request, res: Response) => {
     let client
     try {
         const id = Number(req.params.id)
-        if (isNaN(id)) {
+        if (!Number.isInteger(id)) {
             res.status(400).json({ error: 'invalid id' })
             return
         }
@@ -169,7 +169,7 @@ app.patch('/movies/:id', async (req: Request, res: Response) => {
     let client
     try {
         const id = Number(req.params.id)
-        if (isNaN(id)) {
+        if (!Number.isInteger(id)) {
             res.status(400).json({ error: 'invalid id' })
             return
         }
@@ -257,7 +257,7 @@ app.delete('/movies/:id', async (req: Request, res: Response) => {
     let client
     try {
         const id = Number(req.params.id)
-        if (isNaN(id)) {
+        if (!Number.isInteger(id)) {
             res.status(400).json({ error: 'invalid id' })
             return
         }
