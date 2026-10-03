@@ -72,6 +72,12 @@ describe('GET /movies/:id', () => {
         expect(res.status).toBe(400)
         expect(res.body).toHaveProperty('error')
     })
+
+    it('returns 400 when the id is not a whole number', async () => {
+        const res = await request(app).get('/movies/1.5')
+        expect(res.status).toBe(400)
+        expect(res.body).toHaveProperty('error')
+    })
 })
 
 describe('POST /movies', () => {
@@ -82,7 +88,7 @@ describe('POST /movies', () => {
 
         const result = await pool.query('SELECT * FROM movies')
         const expected = { id:1, title: 'Thor', year: 2011, rating: '7.2', watched: false }
-        
+
         expect(res.status).toBe(201)
         expect(res.body).toEqual(expected)
         expect(result.rows).toEqual([expected])
