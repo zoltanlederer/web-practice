@@ -106,8 +106,17 @@ app.post('/movies', async (req: Request, res: Response) => {
             throw err // re-throw so the outer catch still sends an error response to the client
         }
     } catch (err) {
-        console.log(err)
-        res.status(500).json({ error: 'Failed to create movie' })
+        // err is 'unknown' in TypeScript, so narrow it step by step before reading err.code:
+        // object → not null (typeof null is also 'object') → has a 'code' property → code matches.
+        // 23503 = foreign_key_violation: genre_ids contains an id that doesn't exist in genres.
+        // That's a client mistake, not a server failure → 400 instead of 500.
+        if (typeof err === 'object' && err !== null && 'code' in err && err.code === '23503') {
+            res.status(400).json({ error: 'genre_ids contains a genre that does not exist' })
+        } else {
+            // Only log unexpected errors: expected client mistakes (above) would just add noise.
+            console.log(err)
+            res.status(500).json({ error: 'Failed to create movie' })
+        }
     } finally {
         client?.release()
     }
