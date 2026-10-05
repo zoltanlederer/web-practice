@@ -164,8 +164,13 @@ app.put('/movies/:id', async (req: Request, res: Response) => {
         }
         
     } catch (err) {
-        console.log(err)
-        res.status(500).json({ error: 'update failed' })
+        // 23503 = foreign_key_violation → client sent a nonexistent genre id → 400.
+        if (typeof err === 'object' && err !== null && 'code' in err && err.code === '23503') {
+            res.status(400).json({ error: 'genre_ids contains a genre that does not exist' })
+        } else {
+            console.log(err)
+            res.status(500).json({ error: 'update failed' })
+        }
     } finally {
         client?.release()
     }
