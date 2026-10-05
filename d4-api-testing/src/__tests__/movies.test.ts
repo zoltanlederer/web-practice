@@ -123,3 +123,45 @@ describe('POST /movies', () => {
         expect(genres.rows).toEqual([ { id: 1, name: 'Action' } ])  // data from before the request is untouched
     })
 })
+
+describe('PUT /movies/:id', () => {
+    it('returns 200 and replaces all fields', async () => {
+        await pool.query("INSERT INTO movies (title, year, rating, watched) VALUES ('The Avengers', 2012, 8.3, false)")
+
+        const res = await request(app)
+            .put('/movies/1')
+            .send({ title: 'Thor', year: 2011, rating: 7.2, watched: true })
+
+        const result = await pool.query('SELECT * FROM movies')
+        const expected = { id:1, title: 'Thor', year: 2011, rating: '7.2', watched: true }
+        expect(res.status).toBe(200)
+        expect(res.body).toEqual(expected)
+        expect(result.rows).toEqual([expected])
+    })
+
+    it("returns 200 and replaces the movie's genres", async () => {
+        await pool.query("INSERT INTO genres (name) VALUES ('Drama'), ('Comedy')")
+        await pool.query("INSERT INTO movies (title, year, rating, watched) VALUES ('The Avengers', 2012, 8.3, false)")
+        await pool.query("INSERT INTO movie_genres (movie_id, genre_id) VALUES (1, 1)")
+
+        const res = await request(app)
+            .put('/movies/1')
+            .send({ title: 'Thor', year: 2011, rating: 7.2, watched: true, genre_ids: [2] })
+        
+        const result = await pool.query('SELECT * FROM movie_genres')
+        const expected = { movie_id: 1, genre_id: 2 }
+        expect(res.status).toBe(200)
+        expect(result.rows).toEqual([expected])
+    })
+
+    it("returns 404 when the movie doesn't exist", async () => {
+        const res = await request(app)
+            .put('/movies/999')
+            .send({ title: 'Thor' })
+        
+        const result = await pool.query('SELECT * FROM movies')
+        expect(res.status).toBe(404)
+        expect(res.body).toHaveProperty('error')
+        expect(result.rows).toEqual([])
+    })
+})
