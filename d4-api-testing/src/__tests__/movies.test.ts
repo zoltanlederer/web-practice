@@ -182,3 +182,36 @@ describe('PUT /movies/:id', () => {
         expect(links.rows).toEqual([{ movie_id: 1, genre_id: 1 }])
     })
 })
+
+describe('PATCH /movies/:id', () => {
+    it('returns 200 and updates only the fields sent', async () => {
+        await pool.query("INSERT INTO movies (title, year, rating, watched) VALUES ('The Avengers', 2012, 8.3, false)")
+
+        const res = await request(app)
+            .patch('/movies/1')
+            .send({ title: 'Thor', watched: true })
+        
+        const result = await pool.query('SELECT * FROM movies')
+        const expected = { id:1, title: 'Thor', year: 2012, rating: '8.3', watched: true }
+        expect(res.status).toBe(200)
+        expect(res.body).toEqual(expected)
+        expect(result.rows).toEqual([expected])
+    })
+
+    it("returns 400 and changes nothing when a genre id doesn't exist", async () => {
+        await pool.query("INSERT INTO genres (name) VALUES ('Drama')")
+        await pool.query("INSERT INTO movies (title, year, rating, watched) VALUES ('The Avengers', 2012, 8.3, false)")
+        await pool.query("INSERT INTO movie_genres (movie_id, genre_id) VALUES (1, 1)")
+
+        const res = await request(app)
+            .patch('/movies/1')
+            .send({ title: 'Thor', genre_ids: [999] })
+        
+        const result = await pool.query('SELECT * FROM movies')
+        const links = await pool.query('SELECT * FROM movie_genres')
+        expect(res.status).toBe(400)
+        expect(res.body).toHaveProperty('error')
+        expect(result.rows).toEqual([{ id: 1, title: 'The Avengers', year: 2012, rating: '8.3', watched: false }])
+        expect(links.rows).toEqual([{ movie_id: 1, genre_id: 1 }])
+    })
+})
