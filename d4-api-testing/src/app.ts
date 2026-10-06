@@ -259,8 +259,13 @@ app.patch('/movies/:id', async (req: Request, res: Response) => {
             throw err
         }
     } catch (err) {
-        console.log(err)
-        res.status(500).json({ error: 'update failed' })
+        // 23503 = foreign_key_violation → client sent a nonexistent genre id → 400.
+        if (typeof err === 'object' && err !== null && 'code' in err && err.code === '23503') {
+            res.status(400).json({ error: 'genre_ids contains a genre that does not exist' })
+        } else {
+            console.log(err)
+            res.status(500).json({ error: 'update failed' })
+        }
     } finally {
         // Always release the client back to the pool, even if something threw above.
         client?.release()
