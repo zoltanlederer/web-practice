@@ -275,7 +275,7 @@ app.patch('/movies/:id', async (req: Request, res: Response) => {
     }
 });
 
-app.delete('/movies/:id', async (req: Request, res: Response) => {
+app.delete('/movies/:id', requireAuth, async (req: Request, res: Response) => {
     let client
     try {
         const id = Number(req.params.id)
