@@ -2,6 +2,8 @@ import request from 'supertest'
 import { pool } from '../db.js'
 import { app } from '../app.js'
 import { resetDb } from '../test-helpers.js'
+import jwt from 'jsonwebtoken'
+import { JWT_SECRET } from '../auth.js'
 
 beforeEach(async () => {
     await resetDb()
@@ -213,5 +215,51 @@ describe('PATCH /movies/:id', () => {
         expect(res.body).toHaveProperty('error')
         expect(result.rows).toEqual([{ id: 1, title: 'The Avengers', year: 2012, rating: '8.3', watched: false }])
         expect(links.rows).toEqual([{ movie_id: 1, genre_id: 1 }])
+    })
+})
+
+describe('DELETE /movies/:id', () => {
+    it('returns 401 and deletes nothing without a token', async () => {
+        await pool.query("INSERT INTO movies (title, year, rating, watched) VALUES ('The Avengers', 2012, 8.3, false)")
+
+        const res = await request(app)
+            .delete('/movies/1')
+        
+        const result = await pool.query('SELECT * FROM movies')            
+        expect(res.status).toBe(401)
+        expect(res.body).toHaveProperty('error')
+        expect(result.rows).toEqual([ { id: 1, title: 'The Avengers', year: 2012, rating: '8.3', watched: false } ])
+    })
+    
+    it('returns 401 and deletes nothing with a forged token', async () => {
+        await pool.query("INSERT INTO movies (title, year, rating, watched) VALUES ('The Avengers', 2012, 8.3, false)")
+        
+        const token = jwt.sign({ id: 1 }, 'not-the-real-secret')
+        const res = await request(app)
+            .delete('/movies/1')
+            .set('Authorization', `Bearer ${token}`)
+        
+        const result = await pool.query('SELECT * FROM movies')
+        expect(res.status).toBe(401)
+        expect(res.body).toHaveProperty('error')
+        expect(result.rows).toEqual([ { id: 1, title: 'The Avengers', year: 2012, rating: '8.3', watched: false } ])
+    })
+
+    it('returns 200 and deletes the movie and its genre links with a valid token', async () => {
+        await pool.query("INSERT INTO genres (name) VALUES ('Drama')")
+        await pool.query("INSERT INTO movies (title, year, rating, watched) VALUES ('The Avengers', 2012, 8.3, false)")
+        await pool.query("INSERT INTO movie_genres (movie_id, genre_id) VALUES (1, 1)")
+
+        const token = jwt.sign({ id: 1}, JWT_SECRET)
+        const res = await request(app)
+            .delete('/movies/1')
+            .set('Authorization', `Bearer ${token}`)
+        
+        const result = await pool.query('SELECT * FROM movies')
+        const links = await pool.query('SELECT * FROM movie_genres')
+        expect(res.status).toBe(200)
+        expect(res.body).toEqual({ id: 1, title: 'The Avengers', year: 2012, rating: '8.3', watched: false })
+        expect(result.rows).toEqual([])
+        expect(links.rows).toEqual([])
     })
 })
