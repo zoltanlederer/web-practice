@@ -58,4 +58,22 @@ describe('POST /login', () => {
         expect(decoded).toHaveProperty('id', 1)
         expect(decoded).toHaveProperty('exp')
     })
+
+    it('returns 401 and the same error for an unknown email as for a wrong password', async () => {
+        const password_hash = await bcrypt.hash('correct-password', 10)
+        await pool.query('INSERT INTO users(email, password_hash) VALUES($1, $2)', ['test@example.com', password_hash])
+
+        const wrongPassword = await request(app)
+            .post('/login')
+            .send({email: 'test@example.com', password: 'wrong-password'})
+
+        const unknownEmail = await request(app)
+            .post('/login')
+            .send({email: 'unknown@example.com', password: 'wrong-password'})
+        
+        expect(wrongPassword.status).toBe(401)
+        expect(unknownEmail.status).toBe(401)
+        expect(wrongPassword.body).toHaveProperty('error')
+        expect(wrongPassword.body).toEqual(unknownEmail.body)
+    })
 })
