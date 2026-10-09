@@ -27,6 +27,23 @@ describe('POST /register', () => {
         expect(res.body).toHaveProperty('error')
         expect(result.rows).toHaveLength(1)
     })
+
+    it('returns 201 and creates the user without exposing the password hash', async () => {
+        const res = await request(app)
+            .post('/register')
+            .send({email: 'test@example.com', password: 'password123'})
+
+        const result = await pool.query('SELECT * FROM users')
+        expect(res.status).toBe(201)
+        expect(res.body.email).toBe('test@example.com')
+        expect(res.body).toHaveProperty('created_at')
+        expect(res.body).not.toHaveProperty('password_hash')
+        expect(result.rows).toHaveLength(1)
+        
+        // Only safe once we know the row exists
+        const isMatch = await bcrypt.compare('password123', result.rows[0].password_hash)
+        expect(isMatch).toBe(true)
+    })
 })
 
 describe('POST /login', () => {
