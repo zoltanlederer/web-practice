@@ -262,4 +262,14 @@ describe('DELETE /movies/:id', () => {
         expect(result.rows).toEqual([])
         expect(links.rows).toEqual([])
     })
+
+    it("returns 404 with a valid token when the movie doesn't exist", async () => {
+        const token = jwt.sign({ id: 1}, JWT_SECRET)
+        const res = await request(app)
+            .delete('/movies/999')
+            .set('Authorization', `Bearer ${token}`)
+        
+        expect(res.status).toBe(404)
+        expect(res.body).toHaveProperty('error')
+    })
 })
